@@ -61,6 +61,14 @@
       dailyValuePercent(key, totals[key], selectedProfile.targets)
     ])
   ) as Record<NutrientKey, number | null>;
+  $: percentageLabels = Object.fromEntries(
+    nutrientKeys.map((key) => [
+      key,
+      percentages[key] === 0 && totals[key] > 0
+        ? '<1%'
+        : formatDailyValuePercent(percentages[key])
+    ])
+  ) as Record<NutrientKey, string>;
 
   onMount(async () => {
     try {
@@ -97,11 +105,6 @@
     meal = meal.filter((item) => item.id !== id);
   }
 
-  function formattedPercent(key: NutrientKey) {
-    const percentage = percentages[key];
-    if (percentage === 0 && totals[key] > 0) return '<1%';
-    return formatDailyValuePercent(percentage);
-  }
 </script>
 
 <svelte:head>
@@ -276,7 +279,7 @@
               {formatAmount(totals[row.key])}{row.unit}
             </span>
             {#if percentages[row.key] !== null}
-              <strong>{formattedPercent(row.key)}</strong>
+              <strong>{percentageLabels[row.key]}</strong>
             {/if}
           </div>
         {/each}
@@ -285,7 +288,7 @@
         {#each vitaminRows as row (row.key)}
           <div class="nutrient-row vitamin-row">
             <span>{row.label} {formatAmount(totals[row.key])}{row.unit}</span>
-            <span>{formattedPercent(row.key)}</span>
+            <span>{percentageLabels[row.key]}</span>
           </div>
         {/each}
         <div class="rule-medium foot-rule"></div>
