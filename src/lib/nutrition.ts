@@ -190,6 +190,11 @@ export function dailyValuePercent(
   return dailyValue ? Math.round((value / dailyValue) * 100) : null;
 }
 
+export function formatDailyValuePercent(percent: number | null): string {
+  if (percent === null) return "";
+  return percent === 0 ? "0%" : `${percent}%`;
+}
+
 export function formatAmount(value: number, decimals = 1): string {
   if (value === 0) return "0";
   if (value < 0.1) return "<0.1";

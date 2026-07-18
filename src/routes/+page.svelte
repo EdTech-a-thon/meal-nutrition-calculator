@@ -4,6 +4,8 @@
     calculateMeal,
     dailyValuePercent,
     formatAmount,
+    formatDailyValuePercent,
+    nutrientKeys,
     parseFoods,
     type Food,
     type MealItem,
@@ -53,6 +55,12 @@
   $: servingWeight = servings > 0 ? totalWeight / servings : totalWeight;
   $: selectedProfile =
     nutritionProfiles.find((profile) => profile.id === selectedProfileId) ?? nutritionProfiles[0];
+  $: percentages = Object.fromEntries(
+    nutrientKeys.map((key) => [
+      key,
+      dailyValuePercent(key, totals[key], selectedProfile.targets)
+    ])
+  ) as Record<NutrientKey, number | null>;
 
   onMount(async () => {
     try {
@@ -89,8 +97,10 @@
     meal = meal.filter((item) => item.id !== id);
   }
 
-  function percent(key: NutrientKey) {
-    return dailyValuePercent(key, totals[key], selectedProfile.targets);
+  function formattedPercent(key: NutrientKey) {
+    const percentage = percentages[key];
+    if (percentage === 0 && totals[key] > 0) return '<1%';
+    return formatDailyValuePercent(percentage);
   }
 </script>
 
@@ -265,8 +275,8 @@
               <strong class:normal={row.indent || row.key === 'protein'}>{row.label}</strong>
               {formatAmount(totals[row.key])}{row.unit}
             </span>
-            {#if percent(row.key) !== null}
-              <strong>{percent(row.key)}%</strong>
+            {#if percentages[row.key] !== null}
+              <strong>{formattedPercent(row.key)}</strong>
             {/if}
           </div>
         {/each}
@@ -275,7 +285,7 @@
         {#each vitaminRows as row (row.key)}
           <div class="nutrient-row vitamin-row">
             <span>{row.label} {formatAmount(totals[row.key])}{row.unit}</span>
-            <span>{percent(row.key)}%</span>
+            <span>{formattedPercent(row.key)}</span>
           </div>
         {/each}
         <div class="rule-medium foot-rule"></div>

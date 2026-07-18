@@ -3,6 +3,7 @@ import {
   calculateMeal,
   dailyValuePercent,
   emptyNutrients,
+  formatDailyValuePercent,
   parseFoods,
   parseNumber,
   type Food,
@@ -53,5 +54,11 @@ describe("nutrition data", () => {
 
   it("calculates percentages from a selected nutrition profile", () => {
     expect(dailyValuePercent("protein", 23, { protein: 46 })).toBe(50);
+  });
+
+  it("formats daily target percentages", () => {
+    expect(formatDailyValuePercent(50)).toBe("50%");
+    expect(formatDailyValuePercent(0)).toBe("0%");
+    expect(formatDailyValuePercent(null)).toBe("");
   });
 });
