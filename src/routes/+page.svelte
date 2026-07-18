@@ -9,6 +9,7 @@
     type MealItem,
     type NutrientKey
   } from '$lib/nutrition';
+  import { nutritionProfiles } from '$lib/nutrition-profiles';
 
   let foods: Food[] = [];
   let meal: MealItem[] = [];
@@ -18,6 +19,7 @@
   let loading = true;
   let loadError = '';
   let showResults = false;
+  let selectedProfileId = nutritionProfiles[0].id;
 
   const nutrientRows: { key: NutrientKey; label: string; unit: string; indent?: boolean }[] = [
     { key: 'totalFat', label: 'Total Fat', unit: 'g' },
@@ -49,6 +51,8 @@
   $: totals = calculateMeal(meal, servings);
   $: totalWeight = meal.reduce((sum, item) => sum + item.food.weight * item.quantity, 0);
   $: servingWeight = servings > 0 ? totalWeight / servings : totalWeight;
+  $: selectedProfile =
+    nutritionProfiles.find((profile) => profile.id === selectedProfileId) ?? nutritionProfiles[0];
 
   onMount(async () => {
     try {
@@ -86,7 +90,7 @@
   }
 
   function percent(key: NutrientKey) {
-    return dailyValuePercent(key, totals[key]);
+    return dailyValuePercent(key, totals[key], selectedProfile.targets);
   }
 </script>
 
@@ -136,6 +140,14 @@
         <label>
           Recipe servings
           <input bind:value={servings} type="number" min="1" step="1" />
+        </label>
+        <label>
+          Daily target for
+          <select bind:value={selectedProfileId}>
+            {#each nutritionProfiles as profile (profile.id)}
+              <option value={profile.id}>{profile.label}</option>
+            {/each}
+          </select>
         </label>
       </div>
 
@@ -244,7 +256,8 @@
           <strong>{Math.round(totals.calories)}</strong>
         </div>
         <div class="rule-medium"></div>
-        <div class="dv-heading">% Daily Value*</div>
+        <div class="target-profile">For {selectedProfile.label}</div>
+        <div class="dv-heading">% of daily target*</div>
 
         {#each nutrientRows as row (row.key)}
           <div class:indent={row.indent} class:protein-row={row.key === 'protein'} class="nutrient-row">
@@ -267,8 +280,8 @@
         {/each}
         <div class="rule-medium foot-rule"></div>
         <p class="daily-note">
-          * The % Daily Value tells you how much a nutrient in a serving contributes to a daily
-          diet. 2,000 calories a day is used for general nutrition advice.
+          * Shows how much one serving contributes to the selected example target.
+          {selectedProfile.description}. Needs vary by growth, activity, and health.
         </p>
       </div>
 
@@ -301,7 +314,8 @@
   }
 
   :global(button),
-  :global(input) {
+  :global(input),
+  :global(select) {
     font: inherit;
   }
 
@@ -433,7 +447,7 @@
 
   .name-row {
     display: grid;
-    grid-template-columns: 1fr 170px;
+    grid-template-columns: minmax(180px, 1fr) 140px minmax(190px, 0.7fr);
     gap: 16px;
     margin-top: 36px;
   }
@@ -449,7 +463,8 @@
     text-transform: uppercase;
   }
 
-  input {
+  input,
+  select {
     width: 100%;
     height: 48px;
     border: 1px solid #aaa495;
@@ -462,6 +477,11 @@
   }
 
   input:focus {
+    border-color: #163e2e;
+    box-shadow: 0 0 0 2px #163e2e22;
+  }
+
+  select:focus {
     border-color: #163e2e;
     box-shadow: 0 0 0 2px #163e2e22;
   }
@@ -799,6 +819,14 @@
     font-size: 11px;
     font-weight: 800;
     text-align: right;
+  }
+
+  .target-profile {
+    padding: 5px 0 4px;
+    font-size: 10px;
+    font-weight: 800;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
   }
 
   .nutrient-row {

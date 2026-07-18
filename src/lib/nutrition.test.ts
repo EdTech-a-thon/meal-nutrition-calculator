@@ -50,4 +50,8 @@ describe("nutrition data", () => {
     expect(dailyValuePercent("sodium", 1150)).toBe(50);
     expect(dailyValuePercent("protein", 20)).toBeNull();
   });
+
+  it("calculates percentages from a selected nutrition profile", () => {
+    expect(dailyValuePercent("protein", 23, { protein: 46 })).toBe(50);
+  });
 });

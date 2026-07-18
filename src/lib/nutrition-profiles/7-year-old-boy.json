@@ -1,0 +1,18 @@
+{
+  "id": "boy-7",
+  "label": "7-year-old boy",
+  "description": "Ages 4-8; 1,600-calorie example",
+  "targets": {
+    "calories": 1600,
+    "totalFat": 53,
+    "saturatedFat": 18,
+    "cholesterol": 300,
+    "sodium": 1500,
+    "carbohydrate": 130,
+    "fiber": 25,
+    "protein": 19,
+    "calcium": 1000,
+    "iron": 10,
+    "potassium": 2300
+  }
+}

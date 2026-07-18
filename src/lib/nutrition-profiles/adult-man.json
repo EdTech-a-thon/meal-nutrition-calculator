@@ -1,0 +1,18 @@
+{
+  "id": "adult-man",
+  "label": "Adult man",
+  "description": "Ages 19-50; 2,500-calorie example",
+  "targets": {
+    "calories": 2500,
+    "totalFat": 83,
+    "saturatedFat": 28,
+    "cholesterol": 300,
+    "sodium": 2300,
+    "carbohydrate": 130,
+    "fiber": 38,
+    "protein": 56,
+    "calcium": 1000,
+    "iron": 8,
+    "potassium": 3400
+  }
+}

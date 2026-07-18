@@ -1,0 +1,18 @@
+{
+  "id": "high-school-girl",
+  "label": "High school girl",
+  "description": "Ages 14-18; 2,000-calorie example",
+  "targets": {
+    "calories": 2000,
+    "totalFat": 67,
+    "saturatedFat": 22,
+    "cholesterol": 300,
+    "sodium": 2300,
+    "carbohydrate": 130,
+    "fiber": 26,
+    "protein": 46,
+    "calcium": 1300,
+    "iron": 15,
+    "potassium": 2300
+  }
+}

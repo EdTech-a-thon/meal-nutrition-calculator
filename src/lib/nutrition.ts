@@ -15,6 +15,13 @@ export const nutrientKeys = [
 export type NutrientKey = (typeof nutrientKeys)[number];
 export type Nutrients = Record<NutrientKey, number>;
 
+export type NutritionProfile = {
+  id: string;
+  label: string;
+  description: string;
+  targets: Nutrients;
+};
+
 export type Food = {
   id: string;
   name: string;
@@ -177,8 +184,9 @@ export function calculateMeal(items: MealItem[], servings: number): Nutrients {
 export function dailyValuePercent(
   key: NutrientKey,
   value: number,
+  targets: Partial<Record<NutrientKey, number>> = dailyValues,
 ): number | null {
-  const dailyValue = dailyValues[key];
+  const dailyValue = targets[key];
   return dailyValue ? Math.round((value / dailyValue) * 100) : null;
 }
 
