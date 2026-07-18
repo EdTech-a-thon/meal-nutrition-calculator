@@ -288,7 +288,7 @@
       <div class="data-note">
         <strong>About this estimate</strong>
         <p>
-          Values come from USDA reference data. Sugars, added sugars, trans fat, and vitamin D
+          Values come from USDA reference data. Added sugars, trans fat, and vitamin D
           are not available in this dataset, so they are not shown.
         </p>
       </div>
