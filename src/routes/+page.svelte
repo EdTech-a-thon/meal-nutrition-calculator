@@ -298,6 +298,24 @@
         </p>
       </div>
 
+      <section class="print-ingredients" aria-label="Meal ingredients">
+        <h3>Meal ingredients</h3>
+        <p>{servings || 1} servings in the full recipe</p>
+        <ul>
+          {#each meal as item (item.id)}
+            <li>
+              <strong>{item.food.name}</strong>
+              <span>
+                {formatAmount(item.quantity, 2)} x {item.food.measure} ({formatAmount(
+                  item.food.weight * item.quantity,
+                  0
+                )} g)
+              </span>
+            </li>
+          {/each}
+        </ul>
+      </section>
+
       <div class="data-note">
         <strong>About this estimate</strong>
         <p>
@@ -888,6 +906,10 @@
     line-height: 1.5;
   }
 
+  .print-ingredients {
+    display: none;
+  }
+
   .data-note strong {
     letter-spacing: 0.06em;
     text-transform: uppercase;
@@ -1018,6 +1040,47 @@
     .nutrition-label {
       max-width: 440px;
       opacity: 1 !important;
+    }
+
+    .print-ingredients {
+      display: block;
+      max-width: 440px;
+      margin: 18px auto 0;
+      color: black;
+      break-inside: avoid;
+    }
+
+    .print-ingredients h3 {
+      margin: 0;
+      padding-bottom: 4px;
+      border-bottom: 3px solid black;
+      font-size: 18px;
+      text-transform: uppercase;
+    }
+
+    .print-ingredients p {
+      margin: 4px 0 8px;
+      font-size: 11px;
+    }
+
+    .print-ingredients ul {
+      margin: 0;
+      padding: 0;
+      list-style: none;
+    }
+
+    .print-ingredients li {
+      display: flex;
+      justify-content: space-between;
+      gap: 16px;
+      padding: 5px 0;
+      border-bottom: 1px solid #777;
+      font-size: 11px;
+    }
+
+    .print-ingredients li span {
+      flex-shrink: 0;
+      text-align: right;
     }
   }
 </style>
