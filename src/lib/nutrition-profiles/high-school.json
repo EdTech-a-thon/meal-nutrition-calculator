@@ -1,0 +1,18 @@
+{
+  "id": "high-school",
+  "label": "High school",
+  "description": "Grades 9-12, ages 14-18; a 2,400-calorie day",
+  "targets": {
+    "calories": 2400,
+    "totalFat": 80,
+    "saturatedFat": 27,
+    "cholesterol": 300,
+    "sodium": 2300,
+    "carbohydrate": 130,
+    "fiber": 34,
+    "protein": 52,
+    "calcium": 1300,
+    "iron": 15,
+    "potassium": 3000
+  }
+}

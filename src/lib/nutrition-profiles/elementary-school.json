@@ -1,0 +1,18 @@
+{
+  "id": "elementary-school",
+  "label": "Elementary school",
+  "description": "Grades K-5, ages 5-10; a 1,600-calorie day",
+  "targets": {
+    "calories": 1600,
+    "totalFat": 53,
+    "saturatedFat": 18,
+    "cholesterol": 300,
+    "sodium": 1800,
+    "carbohydrate": 130,
+    "fiber": 22,
+    "protein": 34,
+    "calcium": 1300,
+    "iron": 10,
+    "potassium": 2500
+  }
+}

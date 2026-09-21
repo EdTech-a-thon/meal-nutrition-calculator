@@ -1,0 +1,18 @@
+{
+  "id": "middle-school",
+  "label": "Middle school",
+  "description": "Grades 6-8, ages 11-13; a 2,000-calorie day",
+  "targets": {
+    "calories": 2000,
+    "totalFat": 67,
+    "saturatedFat": 22,
+    "cholesterol": 300,
+    "sodium": 1800,
+    "carbohydrate": 130,
+    "fiber": 28,
+    "protein": 34,
+    "calcium": 1300,
+    "iron": 8,
+    "potassium": 2500
+  }
+}

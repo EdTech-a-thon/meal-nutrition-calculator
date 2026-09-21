@@ -48,6 +48,9 @@
   $: servingWeight = servings > 0 ? totalWeight / servings : totalWeight;
   $: selectedProfile =
     nutritionProfiles.find((profile) => profile.id === selectedProfileId) ?? nutritionProfiles[0];
+  /* Computed up front rather than called from the markup: Svelte only re-runs a
+     template expression when a value the expression itself names has changed, so
+     a percent(key) call in the label would never notice that totals changed. */
   $: percentages = Object.fromEntries(
     nutrientKeys.map((key) => [
       key,
