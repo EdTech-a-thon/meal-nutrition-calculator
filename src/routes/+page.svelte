@@ -3,10 +3,12 @@
   import {
     calculateMeal,
     dailyValuePercent,
+    foodLabel,
     formatAmount,
     formatDailyValuePercent,
     nutrientKeys,
     parseFoods,
+    searchFoods,
     type Food,
     type MealItem,
     type NutrientKey
@@ -40,16 +42,7 @@
   ];
 
   $: normalizedQuery = query.trim().toLowerCase();
-  $: results = normalizedQuery
-    ? foods
-        .filter((food) => food.name.toLowerCase().includes(normalizedQuery))
-        .sort((a, b) => {
-          const aStarts = a.name.toLowerCase().startsWith(normalizedQuery) ? 0 : 1;
-          const bStarts = b.name.toLowerCase().startsWith(normalizedQuery) ? 0 : 1;
-          return aStarts - bStarts || a.name.localeCompare(b.name);
-        })
-        .slice(0, 12)
-    : [];
+  $: results = searchFoods(foods, normalizedQuery);
   $: totals = calculateMeal(meal, servings);
   $: totalWeight = meal.reduce((sum, item) => sum + item.food.weight * item.quantity, 0);
   $: servingWeight = servings > 0 ? totalWeight / servings : totalWeight;
@@ -72,9 +65,9 @@
 
   onMount(async () => {
     try {
-      const response = await fetch('/data/nutritive_value_of_foods.csv');
+      const response = await fetch('/data/foods.json');
       if (!response.ok) throw new Error('Food data could not be loaded.');
-      foods = parseFoods(await response.text());
+      foods = parseFoods(await response.json());
     } catch (error) {
       loadError = error instanceof Error ? error.message : 'Food data could not be loaded.';
     } finally {
@@ -155,7 +148,7 @@
           <input bind:value={servings} type="number" min="1" step="1" />
         </label>
         <label>
-          Daily target for
+          Daily target for age
           <select bind:value={selectedProfileId}>
             {#each nutritionProfiles as profile (profile.id)}
               <option value={profile.id}>{profile.label}</option>
@@ -188,7 +181,9 @@
                 <button type="button" onclick={() => addFood(food)}>
                   <span>
                     <strong>{food.name}</strong>
-                    <small>{food.measure} · {food.weight} g</small>
+                    <small>
+                      {#if food.variant}{food.variant} · {/if}{food.measure} · {food.weight} g
+                    </small>
                   </span>
                   <span class="result-calories">{formatAmount(food.nutrients.calories, 0)} cal</span>
                   <span class="add" aria-hidden="true">+</span>
@@ -212,7 +207,7 @@
             <article class="meal-item">
               <div class="food-icon" aria-hidden="true">{item.food.name.charAt(0)}</div>
               <div class="food-info">
-                <strong>{item.food.name}</strong>
+                <strong>{foodLabel(item.food)}</strong>
                 <span>{item.food.measure} ({item.food.weight} g)</span>
               </div>
               <label class="quantity">
@@ -224,14 +219,14 @@
                   type="number"
                   min="0.1"
                   step="0.25"
-                  aria-label={`Servings of ${item.food.name}`}
+                  aria-label={`Servings of ${foodLabel(item.food)}`}
                 />
               </label>
               <button
                 class="remove"
                 type="button"
                 onclick={() => removeFood(item.id)}
-                aria-label={`Remove ${item.food.name}`}>×</button
+                aria-label={`Remove ${foodLabel(item.food)}`}>×</button
               >
             </article>
           {/each}
@@ -293,8 +288,9 @@
         {/each}
         <div class="rule-medium foot-rule"></div>
         <p class="daily-note">
-          * Shows how much one serving contributes to the selected example target.
-          {selectedProfile.description}. Needs vary by growth, activity, and health.
+          * Shows how much one serving contributes to a whole day's nutrition for
+          the selected age. {selectedProfile.description}. An individual student's
+          needs vary by growth, activity, and health.
         </p>
       </div>
 
@@ -808,19 +804,21 @@
     font-size: 14px;
   }
 
+  /* Drawn as borders, not filled backgrounds, so they survive printing
+     even when the browser is set to skip background graphics. */
   .rule-heavy {
-    height: 10px;
+    height: 0;
     margin-top: 4px;
-    background: #111;
+    border-top: 10px solid #111;
   }
 
   .rule-heavy.small {
-    height: 6px;
+    border-top-width: 6px;
   }
 
   .rule-medium {
-    height: 5px;
-    background: #111;
+    height: 0;
+    border-top: 5px solid #111;
   }
 
   .amount {
@@ -1002,6 +1000,14 @@
   @media print {
     :global(body) {
       background: white;
+      -webkit-print-color-adjust: exact;
+      print-color-adjust: exact;
+    }
+
+    .nutrition-label,
+    .nutrition-label * {
+      -webkit-print-color-adjust: exact;
+      print-color-adjust: exact;
     }
 
     .site-header,

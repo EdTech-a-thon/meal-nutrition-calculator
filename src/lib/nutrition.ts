@@ -24,32 +24,29 @@ export type NutritionProfile = {
 
 export type Food = {
   id: string;
+  /** Canonical food name, e.g. "Broccoli, cooked". */
   name: string;
-  category: string;
-  detail: string;
+  /** How this row differs from its siblings, e.g. "From frozen, chopped". */
+  variant: string;
+  /** Food group heading, e.g. "Vegetables". */
+  group: string;
   measure: string;
   weight: number;
+  /** Extra search terms: plurals, synonyms, common names. */
+  keywords: string[];
   nutrients: Nutrients;
+};
+
+export type FoodDataset = {
+  source: string;
+  generated: string;
+  foods: Food[];
 };
 
 export type MealItem = {
   id: string;
   food: Food;
   quantity: number;
-};
-
-const columnMap: Record<NutrientKey, string> = {
-  calories: "calories",
-  totalFat: "total_fat_g",
-  saturatedFat: "sat_fat_g",
-  cholesterol: "cholesterol_mg",
-  sodium: "sodium_mg",
-  carbohydrate: "carbohydrate_g",
-  fiber: "fiber_g",
-  protein: "protein_g",
-  calcium: "calcium_mg",
-  iron: "iron_mg",
-  potassium: "potassium_mg",
 };
 
 export const dailyValues: Partial<Record<NutrientKey, number>> = {
@@ -81,87 +78,106 @@ export function parseNumber(value: string | undefined): number {
   return Number.isFinite(parsed) ? parsed : 0;
 }
 
-export function parseCsvRows(csv: string): string[][] {
-  const rows: string[][] = [];
-  let row: string[] = [];
-  let field = "";
-  let quoted = false;
+const requiredKeys: (keyof Food)[] = [
+  "id",
+  "name",
+  "measure",
+  "weight",
+  "nutrients",
+];
 
-  for (let index = 0; index < csv.length; index += 1) {
-    const character = csv[index];
+/** Reads the dataset produced by scripts/build-foods.mjs. */
+export function parseFoods(raw: unknown): Food[] {
+  const foods = (raw as FoodDataset | undefined)?.foods;
+  if (!Array.isArray(foods)) return [];
 
-    if (character === '"') {
-      if (quoted && csv[index + 1] === '"') {
-        field += '"';
-        index += 1;
-      } else {
-        quoted = !quoted;
-      }
-    } else if (character === "," && !quoted) {
-      row.push(field.trim());
-      field = "";
-    } else if ((character === "\n" || character === "\r") && !quoted) {
-      if (character === "\r" && csv[index + 1] === "\n") index += 1;
-      row.push(field.trim());
-      if (row.some(Boolean)) rows.push(row);
-      row = [];
-      field = "";
-    } else {
-      field += character;
-    }
-  }
+  return foods.flatMap((food) => {
+    if (requiredKeys.some((key) => food?.[key] === undefined)) return [];
+    if (!(food.weight > 0)) return [];
 
-  if (field || row.length) {
-    row.push(field.trim());
-    if (row.some(Boolean)) rows.push(row);
-  }
-
-  return rows;
-}
-
-function cleanText(value: string | undefined): string {
-  return (value ?? "")
-    .replace(/\s+/g, " ")
-    .replace(/\s+([,)])/g, "$1")
-    .trim();
-}
-
-export function parseFoods(csv: string): Food[] {
-  const [headers, ...rows] = parseCsvRows(csv);
-  if (!headers) return [];
-
-  return rows.flatMap((values) => {
-    const record = Object.fromEntries(
-      headers.map((header, index) => [header, values[index] ?? ""]),
-    );
-    const id = cleanText(record.food_no);
-    const category = cleanText(record.category);
-    const detail = cleanText(record.food);
-    const measure = cleanText(record.measure);
-    const weight = parseNumber(record.weight_g);
     const nutrients = emptyNutrients();
-
     for (const key of nutrientKeys)
-      nutrients[key] = parseNumber(record[columnMap[key]]);
-
-    if (!id || (!category && !detail) || weight <= 0 || nutrients.calories <= 0)
-      return [];
-
-    const nameParts = [category, detail].filter(Boolean);
-    const name = [...new Set(nameParts)].join(" - ");
+      nutrients[key] = parseNumber(String(food.nutrients?.[key] ?? 0));
 
     return [
       {
-        id,
-        name,
-        category,
-        detail,
-        measure: measure || `${weight} g`,
-        weight,
+        id: String(food.id),
+        name: food.name,
+        variant: food.variant ?? "",
+        group: food.group ?? "",
+        measure: food.measure,
+        weight: food.weight,
+        keywords: food.keywords ?? [],
         nutrients,
       },
     ];
   });
+}
+
+/** Name plus variant, for display in a list or on a meal line. */
+export function foodLabel(food: Food): string {
+  return food.variant ? `${food.name} - ${food.variant}` : food.name;
+}
+
+function haystack(food: Food): string {
+  return [food.name, food.variant, food.group, ...food.keywords]
+    .join(" ")
+    .toLowerCase();
+}
+
+/** Names are "Bananas, raw" or "Broccoli, cooked" - the food itself comes first. */
+function headword(name: string): string {
+  return name.split(",")[0].trim().toLowerCase();
+}
+
+function samePlural(a: string, b: string): boolean {
+  return a === b || a === `${b}s` || `${a}s` === b;
+}
+
+/**
+ * Every query word has to appear somewhere in the food's name, variant, group,
+ * or keywords. Results are then ranked so that the food someone actually named
+ * wins: "banana" puts "Bananas, raw" above "Banana bread", and a match that
+ * only landed in a variant or a synonym sinks to the bottom.
+ */
+export function searchFoods(foods: Food[], query: string, limit = 12): Food[] {
+  const normalized = query.trim().toLowerCase();
+  if (!normalized) return [];
+  const terms = normalized.split(/\s+/);
+
+  const scored = foods.flatMap((food) => {
+    const text = haystack(food);
+    if (!terms.every((term) => text.includes(term))) return [];
+
+    const name = food.name.toLowerCase();
+    const rank =
+      name === normalized
+        ? 0
+        : samePlural(headword(name), normalized)
+          ? 1
+          : name.startsWith(normalized)
+            ? 2
+            : food.keywords.some(
+                  (keyword) => keyword.toLowerCase() === normalized,
+                )
+              ? 3
+              : name.includes(normalized)
+                ? 4
+                : terms.every((term) => name.includes(term))
+                  ? 5
+                  : 6;
+
+    return [{ food, rank }];
+  });
+
+  scored.sort(
+    (a, b) =>
+      a.rank - b.rank ||
+      a.food.name.localeCompare(b.food.name) ||
+      Number(a.food.id) - Number(b.food.id),
+  );
+
+  return scored.slice(0, limit).map((entry) => entry.food);
 }
 
 export function calculateMeal(items: MealItem[], servings: number): Nutrients {

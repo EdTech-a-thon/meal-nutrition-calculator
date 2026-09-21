@@ -3,11 +3,27 @@ import {
   calculateMeal,
   dailyValuePercent,
   emptyNutrients,
+  foodLabel,
   formatDailyValuePercent,
   parseFoods,
   parseNumber,
+  searchFoods,
   type Food,
 } from "./nutrition";
+
+function makeFood(overrides: Partial<Food> = {}): Food {
+  return {
+    id: "1",
+    name: "Test food",
+    variant: "",
+    group: "Test",
+    measure: "1 cup",
+    weight: 100,
+    keywords: [],
+    nutrients: emptyNutrients(),
+    ...overrides,
+  };
+}
 
 describe("nutrition data", () => {
   it("treats trace, unavailable, and blank values as zero", () => {
@@ -16,31 +32,81 @@ describe("nutrition data", () => {
     expect(parseNumber("")).toBe(0);
   });
 
-  it("parses quoted commas and skips incomplete rows", () => {
-    const csv =
-      "food_no,category,food,measure,weight_g,calories,protein_g,total_fat_g,sat_fat_g,cholesterol_mg,carbohydrate_g,fiber_g,calcium_mg,iron_mg,potassium_mg,sodium_mg\n" +
-      '1,Fruit,"Apple, raw",1 apple,100,50,1,Tr,Tr,0,12,2,5,0.2,100,1\n' +
-      "2,,,,,,,,,,,,,,,\n";
-    const foods = parseFoods(csv);
+  it("skips dataset rows that are missing a name or a weight", () => {
+    const foods = parseFoods({
+      foods: [
+        {
+          id: "1064",
+          name: "Broccoli, raw",
+          variant: "Chopped or diced",
+          group: "Vegetables",
+          measure: "1 cup",
+          weight: 88,
+          keywords: [],
+          nutrients: { calories: 25, protein: 3 },
+        },
+        {
+          id: "2",
+          name: "No weight",
+          measure: "1 cup",
+          weight: 0,
+          nutrients: {},
+        },
+        { id: "3", measure: "1 cup", weight: 10, nutrients: {} },
+      ],
+    });
 
     expect(foods).toHaveLength(1);
-    expect(foods[0].name).toBe("Fruit - Apple, raw");
+    expect(foodLabel(foods[0])).toBe("Broccoli, raw - Chopped or diced");
+    expect(foods[0].nutrients.calories).toBe(25);
     expect(foods[0].nutrients.totalFat).toBe(0);
+  });
+
+  it("finds foods by name, variant, and keyword", () => {
+    const broccoli = makeFood({
+      id: "1064",
+      name: "Broccoli, raw",
+      variant: "Chopped or diced",
+    });
+    const beans = makeFood({
+      id: "1049",
+      name: "Snap beans, cooked from raw",
+      variant: "Green",
+      keywords: ["green beans", "string beans"],
+    });
+    const cheese = makeFood({
+      id: "54",
+      name: "Cheddar cheese",
+      keywords: ["cheese"],
+    });
+    const foods = [broccoli, beans, cheese];
+
+    expect(searchFoods(foods, "broccoli")).toEqual([broccoli]);
+    expect(searchFoods(foods, "green beans")).toEqual([beans]);
+    expect(searchFoods(foods, "cheese")).toEqual([cheese]);
+    expect(searchFoods(foods, "zucchini")).toEqual([]);
+  });
+
+  it("ranks a name match above a keyword-only match", () => {
+    const cheddar = makeFood({ id: "54", name: "Cheddar cheese" });
+    const mozzarella = makeFood({ id: "69", name: "Mozzarella cheese" });
+    const pizza = makeFood({
+      id: "851",
+      name: "Pizza, cheese",
+      keywords: ["cheddar"],
+    });
+
+    expect(searchFoods([pizza, mozzarella, cheddar], "cheddar")).toEqual([
+      cheddar,
+      pizza,
+    ]);
   });
 
   it("multiplies quantities and divides a recipe into servings", () => {
     const nutrients = emptyNutrients();
     nutrients.calories = 100;
     nutrients.protein = 4;
-    const food: Food = {
-      id: "1",
-      name: "Test food",
-      category: "Test",
-      detail: "",
-      measure: "1 cup",
-      weight: 100,
-      nutrients,
-    };
+    const food = makeFood({ nutrients });
     const result = calculateMeal([{ id: "line-1", food, quantity: 3 }], 2);
 
     expect(result.calories).toBe(150);
