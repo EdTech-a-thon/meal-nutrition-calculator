@@ -216,3 +216,125 @@ export function formatAmount(value: number, decimals = 1): string {
   if (value < 0.1) return "<0.1";
   return value.toFixed(decimals).replace(/\.0$/, "");
 }
+
+/** Units that read the same whether there is one of them or many. */
+const invariantUnits = new Set([
+  "oz",
+  "g",
+  "kg",
+  "lb",
+  "ml",
+  "l",
+  "tbsp",
+  "tsp",
+  "large",
+  "medium",
+  "small",
+]);
+
+/** Units that measure a size rather than count a thing. */
+const sizeUnits = new Set(["oz", "g", "kg", "lb", "ml", "l", "tbsp", "tsp"]);
+
+export type Measure = {
+  /** How many units one dataset row covers: 10 for "10 halves". */
+  count: number;
+  /** What those units are called: "halves". */
+  unit: string;
+};
+
+/** Drops a trailing note like "(24 nuts)" or '(3" dia)'. */
+function withoutNote(unit: string): string {
+  return unit.replace(/\(.*?\)/g, " ").trim();
+}
+
+/** "6 fl oz can" is one can holding 6 fl oz, not six of something. */
+function describesSize(rest: string): boolean {
+  const words = withoutNote(rest).split(/\s+/);
+  const [first, ...remaining] =
+    words[0]?.toLowerCase() === "fl" ? words.slice(1) : words;
+  return remaining.length > 0 && sizeUnits.has(first?.toLowerCase() ?? "");
+}
+
+/**
+ * Splits a dataset measure into its count and its unit, so "10 halves" becomes
+ * 10 and "halves" and "1/2 breast" becomes 0.5 and "breast". A measure that
+ * never counted anything, like "portion of 21-oz can", is one of itself.
+ */
+export function parseMeasure(measure: string): Measure {
+  const trimmed = measure.trim();
+  const whole: Measure = { count: 1, unit: trimmed };
+
+  const match = /^(\d+(?:\.\d+)?)(?:\s*\/\s*(\d+))?\s+(.+)$/.exec(trimmed);
+  if (!match) return whole;
+
+  const count = match[2]
+    ? Number(match[1]) / Number(match[2])
+    : Number(match[1]);
+  if (!(count > 0) || describesSize(match[3])) return whole;
+
+  return { count, unit: match[3] };
+}
+
+function pluralWord(word: string): string {
+  if (invariantUnits.has(word) || word.endsWith("s")) return word;
+  if (/(potato|tomato|mango)$/.test(word)) return `${word}es`;
+  if (/(x|ch|sh)$/.test(word)) return `${word}es`;
+  if (/[^aeiou]y$/.test(word)) return `${word.slice(0, -1)}ies`;
+  if (/fe?$/.test(word)) return `${word.replace(/fe?$/, "")}ves`;
+  return `${word}s`;
+}
+
+function singularWord(word: string): string {
+  if (invariantUnits.has(word) || !word.endsWith("s")) return word;
+  if (word.endsWith("ies")) return `${word.slice(0, -3)}y`;
+  if (word.endsWith("ves")) return `${word.slice(0, -3)}f`;
+  if (/(ss|x|ch|sh)es$/.test(word)) return word.slice(0, -2);
+  return word.slice(0, -1);
+}
+
+/** Rewrites the head word of a unit, leaving ", chopped" or '(3" dia)' alone. */
+function rewriteUnit(unit: string, rewrite: (word: string) => string): string {
+  const [, head, rest] = /^([^,(]*)(.*)$/.exec(unit) ?? [];
+  if (!head?.trim()) return unit;
+
+  const spacing = head.slice(head.trimEnd().length);
+  const words = head.trimEnd().split(" ");
+  words[words.length - 1] = rewrite(words[words.length - 1]);
+  return `${words.join(" ")}${spacing}${rest ?? ""}`;
+}
+
+/** The unit name to show next to an amount: 1 floweret, 3 flowerets. */
+export function measureUnit(measure: string, amount: number): string {
+  const { count, unit } = parseMeasure(measure);
+
+  // Units that carry their own number, like "6-8 shrimp", never change shape.
+  if (/\d/.test(withoutNote(unit))) return unit;
+
+  const isPlural = count > 1;
+  const wantPlural = amount !== 1;
+  if (isPlural === wantPlural) return unit;
+
+  return rewriteUnit(unit, wantPlural ? pluralWord : singularWord);
+}
+
+/** How many units a meal line holds: 3.5 rows of "10 halves" is 35 halves. */
+export function measureAmount(food: Food, quantity: number): number {
+  return round(parseMeasure(food.measure).count * quantity, 4);
+}
+
+/** Turns an amount someone typed, in units, back into dataset rows. */
+export function quantityFromAmount(food: Food, amount: number): number {
+  return amount / parseMeasure(food.measure).count;
+}
+
+function round(value: number, decimals: number): number {
+  return Number(value.toFixed(decimals));
+}
+
+/** A meal line in the words of the dataset: "0.25 cups", "35 flowerets". */
+export function formatMeasure(food: Food, quantity: number): string {
+  const amount = measureAmount(food, quantity);
+  const unit = measureUnit(food.measure, amount);
+  const separator = /^\d/.test(unit) ? " x " : " ";
+  return `${round(amount, 2)}${separator}${unit}`;
+}

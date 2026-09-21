@@ -5,7 +5,12 @@ import {
   emptyNutrients,
   foodLabel,
   formatDailyValuePercent,
+  formatMeasure,
+  measureAmount,
+  measureUnit,
   parseFoods,
+  parseMeasure,
+  quantityFromAmount,
   parseNumber,
   searchFoods,
   type Food,
@@ -126,5 +131,38 @@ describe("nutrition data", () => {
     expect(formatDailyValuePercent(50)).toBe("50%");
     expect(formatDailyValuePercent(0)).toBe("0%");
     expect(formatDailyValuePercent(null)).toBe("");
+  });
+});
+
+describe("measures", () => {
+  it("splits a measure into how many and of what", () => {
+    expect(parseMeasure("1 cup")).toEqual({ count: 1, unit: "cup" });
+    expect(parseMeasure("10 halves")).toEqual({ count: 10, unit: "halves" });
+    expect(parseMeasure("1/2 breast")).toEqual({ count: 0.5, unit: "breast" });
+    expect(parseMeasure("portion of 21-oz can")).toEqual({
+      count: 1,
+      unit: "portion of 21-oz can",
+    });
+  });
+
+  it("names the unit to match the amount", () => {
+    expect(measureUnit("1 cup", 0.25)).toBe("cups");
+    expect(measureUnit("1 floweret", 35)).toBe("flowerets");
+    expect(measureUnit("10 halves", 1)).toBe("half");
+    expect(measureUnit("10 cherries", 1)).toBe("cherry");
+    expect(measureUnit("4 crackers", 1)).toBe("cracker");
+    expect(measureUnit("1 oz (24 nuts)", 3)).toBe("oz (24 nuts)");
+    expect(measureUnit('1 bagel (3" dia)', 2)).toBe('bagels (3" dia)');
+  });
+
+  it("counts a meal line in the food's own unit", () => {
+    const broccoli = makeFood({ measure: "1 cup" });
+    const almonds = makeFood({ measure: "10 halves" });
+
+    expect(measureAmount(broccoli, 0.25)).toBe(0.25);
+    expect(measureAmount(almonds, 3.5)).toBe(35);
+    expect(quantityFromAmount(almonds, 35)).toBe(3.5);
+    expect(formatMeasure(broccoli, 0.25)).toBe("0.25 cups");
+    expect(formatMeasure(almonds, 0.1)).toBe("1 half");
   });
 });
