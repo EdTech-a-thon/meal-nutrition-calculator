@@ -20,9 +20,17 @@
   <section>
     <p>
       Label Your Lunch does not collect personal information from visitors or
-      students. There are no accounts to create, no advertising, and no
-      third-party trackers on the site. We do not share, sell, or otherwise
-      transfer visitor data to anyone.
+      students. There are no accounts to create and no advertising. We use
+      Cloudflare Web Analytics to anonymously count visits, which helps us
+      understand how Label Your Lunch is being used in classrooms. Cloudflare
+      Web Analytics is cookieless, does not fingerprint visitors, and does not
+      track people across other sites; see Cloudflare's
+      <a
+        href="https://www.cloudflare.com/privacypolicy/"
+        target="_blank"
+        rel="external noreferrer">privacy policy</a
+      > for details. We do not share, sell, or otherwise transfer visitor data to
+      anyone else.
     </p>
     <p>
       The meal you are building — the foods you picked, how much of each, the

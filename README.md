@@ -61,6 +61,19 @@ moderately active child at the middle age of the band, averaged across boys and
 girls. The adult profile is the one exception - it uses the FDA's 2,000-calorie
 reference day, the figure every packaged label is built on.
 
+## Analytics
+
+The site loads Cloudflare Web Analytics - a cookieless visit counter - but only
+when a site token is present. `src/routes/+layout.svelte` reads the token from
+the `PUBLIC_CF_BEACON_TOKEN` environment variable and writes the beacon tag into
+every page's `<head>`; with no token set, no beacon is loaded at all.
+
+Get the token from the Cloudflare dashboard (Analytics & Logs -> Web Analytics)
+and set it in Vercel under Settings -> Environment Variables. The pages are
+prerendered, so the value is baked in at build time: after changing it, redeploy.
+Locally, copy `.env.example` to `.env` and fill it in only if you want to test
+the beacon. The token is not a secret - it ships in the HTML of every page.
+
 ## Everyday commands
 
 ```sh
