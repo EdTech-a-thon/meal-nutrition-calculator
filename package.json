@@ -1,9 +1,10 @@
 {
-  "name": "meal-label-lab",
+  "name": "label-your-lunch",
   "private": true,
   "version": "0.1.0",
   "type": "module",
   "scripts": {
+    "build:foods": "node scripts/build-foods.mjs",
     "dev": "vite --host 0.0.0.0 --port 8000",
     "build": "vite build",
     "preview": "vite preview --host 0.0.0.0 --port 8000",
@@ -14,7 +15,7 @@
   },
   "devDependencies": {
     "@eslint/js": "latest",
-    "@sveltejs/adapter-auto": "latest",
+    "@sveltejs/adapter-vercel": "^6.3.4",
     "@sveltejs/kit": "latest",
     "@sveltejs/vite-plugin-svelte": "latest",
     "eslint": "latest",

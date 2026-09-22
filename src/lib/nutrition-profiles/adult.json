@@ -1,0 +1,18 @@
+{
+  "id": "adult",
+  "label": "Adult",
+  "description": "Ages 19-50; the FDA's 2,000-calorie reference day",
+  "targets": {
+    "calories": 2000,
+    "totalFat": 61,
+    "saturatedFat": 22,
+    "cholesterol": 300,
+    "sodium": 2300,
+    "carbohydrate": 275,
+    "fiber": 38,
+    "protein": 56,
+    "calcium": 1000,
+    "iron": 18,
+    "potassium": 3400
+  }
+}

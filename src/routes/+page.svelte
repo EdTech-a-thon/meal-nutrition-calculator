@@ -1,124 +1,200 @@
 <script lang="ts">
-  import { onMount } from 'svelte';
+  import { onMount } from "svelte";
   import {
     calculateMeal,
     dailyValuePercent,
+    foodLabel,
     formatAmount,
+    formatDailyValuePercent,
+    formatMeasure,
+    measureAmount,
+    measureUnit,
+    nutrientKeys,
+    quantityFromAmount,
     parseFoods,
+    searchFoods,
     type Food,
     type MealItem,
-    type NutrientKey
-  } from '$lib/nutrition';
-  import { nutritionProfiles } from '$lib/nutrition-profiles';
+    type NutrientKey,
+  } from "$lib/nutrition";
+  import { nutritionProfiles } from "$lib/nutrition-profiles";
+  import {
+    clearSavedMeal,
+    loadSavedMeal,
+    restoreMealItems,
+    saveMeal,
+  } from "$lib/saved-meal";
+  import { resolve } from "$app/paths";
+  import SiteHeader from "$lib/SiteHeader.svelte";
+  import SiteFooter from "$lib/SiteFooter.svelte";
 
   let foods: Food[] = [];
   let meal: MealItem[] = [];
-  let query = '';
-  let mealName = 'My meal';
+  let query = "";
+  let mealName = "My meal";
   let servings = 1;
   let loading = true;
-  let loadError = '';
+  let loadError = "";
   let showResults = false;
   let selectedProfileId = nutritionProfiles[0].id;
+  /* Nothing is written back to storage until the saved meal has been read,
+     so the first render can't overwrite it with the empty defaults. */
+  let restored = false;
 
-  const nutrientRows: { key: NutrientKey; label: string; unit: string; indent?: boolean }[] = [
-    { key: 'totalFat', label: 'Total Fat', unit: 'g' },
-    { key: 'saturatedFat', label: 'Saturated Fat', unit: 'g', indent: true },
-    { key: 'cholesterol', label: 'Cholesterol', unit: 'mg' },
-    { key: 'sodium', label: 'Sodium', unit: 'mg' },
-    { key: 'carbohydrate', label: 'Total Carbohydrate', unit: 'g' },
-    { key: 'fiber', label: 'Dietary Fiber', unit: 'g', indent: true },
-    { key: 'protein', label: 'Protein', unit: 'g' }
+  const nutrientRows: {
+    key: NutrientKey;
+    label: string;
+    unit: string;
+    indent?: boolean;
+  }[] = [
+    { key: "totalFat", label: "Total Fat", unit: "g" },
+    { key: "saturatedFat", label: "Saturated Fat", unit: "g", indent: true },
+    { key: "cholesterol", label: "Cholesterol", unit: "mg" },
+    { key: "sodium", label: "Sodium", unit: "mg" },
+    { key: "carbohydrate", label: "Total Carbohydrate", unit: "g" },
+    { key: "fiber", label: "Dietary Fiber", unit: "g", indent: true },
+    { key: "protein", label: "Protein", unit: "g" },
   ];
 
   const vitaminRows: { key: NutrientKey; label: string; unit: string }[] = [
-    { key: 'calcium', label: 'Calcium', unit: 'mg' },
-    { key: 'iron', label: 'Iron', unit: 'mg' },
-    { key: 'potassium', label: 'Potassium', unit: 'mg' }
+    { key: "calcium", label: "Calcium", unit: "mg" },
+    { key: "iron", label: "Iron", unit: "mg" },
+    { key: "potassium", label: "Potassium", unit: "mg" },
   ];
 
   $: normalizedQuery = query.trim().toLowerCase();
-  $: results = normalizedQuery
-    ? foods
-        .filter((food) => food.name.toLowerCase().includes(normalizedQuery))
-        .sort((a, b) => {
-          const aStarts = a.name.toLowerCase().startsWith(normalizedQuery) ? 0 : 1;
-          const bStarts = b.name.toLowerCase().startsWith(normalizedQuery) ? 0 : 1;
-          return aStarts - bStarts || a.name.localeCompare(b.name);
-        })
-        .slice(0, 12)
-    : [];
+  $: results = searchFoods(foods, normalizedQuery);
   $: totals = calculateMeal(meal, servings);
-  $: totalWeight = meal.reduce((sum, item) => sum + item.food.weight * item.quantity, 0);
+  $: totalWeight = meal.reduce(
+    (sum, item) => sum + item.food.weight * item.quantity,
+    0,
+  );
   $: servingWeight = servings > 0 ? totalWeight / servings : totalWeight;
   $: selectedProfile =
-    nutritionProfiles.find((profile) => profile.id === selectedProfileId) ?? nutritionProfiles[0];
+    nutritionProfiles.find((profile) => profile.id === selectedProfileId) ??
+    nutritionProfiles[0];
+  /* Computed up front rather than called from the markup: Svelte only re-runs a
+     template expression when a value the expression itself names has changed, so
+     a percent(key) call in the label would never notice that totals changed. */
+  $: percentages = Object.fromEntries(
+    nutrientKeys.map((key) => [
+      key,
+      dailyValuePercent(key, totals[key], selectedProfile.targets),
+    ]),
+  ) as Record<NutrientKey, number | null>;
+  $: percentageLabels = Object.fromEntries(
+    nutrientKeys.map((key) => [
+      key,
+      percentages[key] === 0 && totals[key] > 0
+        ? "<1%"
+        : formatDailyValuePercent(percentages[key]),
+    ]),
+  ) as Record<NutrientKey, string>;
 
   onMount(async () => {
     try {
-      const response = await fetch('/data/nutritive_value_of_foods.csv');
-      if (!response.ok) throw new Error('Food data could not be loaded.');
-      foods = parseFoods(await response.text());
+      const response = await fetch("/data/foods.json");
+      if (!response.ok) throw new Error("Food data could not be loaded.");
+      foods = parseFoods(await response.json());
+      restoreMeal();
+      restored = true;
     } catch (error) {
-      loadError = error instanceof Error ? error.message : 'Food data could not be loaded.';
+      loadError =
+        error instanceof Error
+          ? error.message
+          : "Food data could not be loaded.";
     } finally {
       loading = false;
     }
   });
 
+  /** Puts back the meal from the last visit, if the browser saved one. */
+  function restoreMeal() {
+    const saved = loadSavedMeal();
+    if (!saved) return;
+
+    meal = restoreMealItems(saved, foods);
+    if (saved.mealName) mealName = saved.mealName;
+    if (saved.servings > 0) servings = saved.servings;
+    if (nutritionProfiles.some((profile) => profile.id === saved.profileId)) {
+      selectedProfileId = saved.profileId;
+    }
+  }
+
+  /* Re-saves whenever any part of the meal changes. */
+  $: if (restored) {
+    saveMeal({
+      mealName,
+      servings: Number(servings) || 1,
+      profileId: selectedProfileId,
+      items: meal.map((item) => ({
+        foodId: item.food.id,
+        quantity: item.quantity,
+      })),
+    });
+  }
+
+  /** Empties the plate and forgets the saved copy in this browser. */
+  function clearMeal() {
+    meal = [];
+    mealName = "My meal";
+    servings = 1;
+    query = "";
+    showResults = false;
+    clearSavedMeal();
+  }
+
   function addFood(food: Food) {
     const existing = meal.find((item) => item.food.id === food.id);
     if (existing) {
       meal = meal.map((item) =>
-        item.id === existing.id ? { ...item, quantity: item.quantity + 1 } : item
+        item.id === existing.id
+          ? { ...item, quantity: item.quantity + 1 }
+          : item,
       );
     } else {
       meal = [...meal, { id: `${food.id}-${Date.now()}`, food, quantity: 1 }];
     }
-    query = '';
+    query = "";
     showResults = false;
   }
 
-  function updateQuantity(id: string, value: number) {
+  /** The number in the box is in the food's own unit: cups, flowerets, slices. */
+  function updateAmount(id: string, amount: number) {
     meal = meal.map((item) =>
-      item.id === id ? { ...item, quantity: Math.max(0.1, value || 0.1) } : item
+      item.id === id
+        ? {
+            ...item,
+            quantity: Math.max(0, quantityFromAmount(item.food, amount || 0)),
+          }
+        : item,
     );
   }
 
   function removeFood(id: string) {
     meal = meal.filter((item) => item.id !== id);
   }
-
-  function percent(key: NutrientKey) {
-    return dailyValuePercent(key, totals[key], selectedProfile.targets);
-  }
 </script>
 
 <svelte:head>
-  <title>Meal Label Lab</title>
+  <title>Label Your Lunch</title>
   <meta
     name="description"
     content="Build a meal from USDA food data and generate an estimated Nutrition Facts label."
   />
 </svelte:head>
 
-<header class="site-header">
-  <div class="brand" aria-label="Meal Label Lab">
-    <span class="brand-mark" aria-hidden="true">ML</span>
-    <span>Meal Label Lab</span>
-  </div>
-  <p>Build it. Measure it. Read the label.</p>
-</header>
+<SiteHeader linkHome={false} tagline="Build it. Measure it. Read the label." />
 
 <main>
   <section class="intro">
     <div>
       <span class="eyebrow">A nutrition classroom tool</span>
-      <h1>What’s really in<br />your meal?</h1>
+      <h1>What’s in<br />your meal?</h1>
     </div>
     <p>
-      Search USDA food data, combine ingredients, and watch a Nutrition Facts label take
-      shape. Try changing portions to see what changes.
+      Search USDA food data, combine ingredients, and watch a Nutrition Facts
+      label take shape. 
     </p>
   </section>
 
@@ -128,21 +204,34 @@
         <span>01</span>
         <div>
           <h2 id="builder-title">Build your meal</h2>
-          <p>Start with a name, then add foods and adjust their servings.</p>
         </div>
       </div>
 
       <div class="name-row">
         <label>
           Meal name
-          <input bind:value={mealName} maxlength="60" placeholder="e.g. Power breakfast" />
+          <input
+            bind:value={mealName}
+            maxlength="60"
+            placeholder="e.g. Power breakfast"
+          />
         </label>
         <label>
           Recipe servings
           <input bind:value={servings} type="number" min="1" step="1" />
         </label>
         <label>
-          Daily target for
+          <span class="label-row">
+            Who's eating?
+            <a
+              class="info-link"
+              href={resolve("/daily-targets")}
+              title="Where these daily targets come from"
+              aria-label="Where these daily targets come from"
+            >
+              <span aria-hidden="true">i</span>
+            </a>
+          </span>
           <select bind:value={selectedProfileId}>
             {#each nutritionProfiles as profile (profile.id)}
               <option value={profile.id}>{profile.label}</option>
@@ -160,7 +249,9 @@
             bind:value={query}
             onfocus={() => (showResults = true)}
             oninput={() => (showResults = true)}
-            placeholder={loading ? 'Loading foods...' : 'Try “banana,” “rice,” or “chicken”'}
+            placeholder={loading
+              ? "Loading foods..."
+              : "Try “banana,” “rice,” or “chicken”"}
             autocomplete="off"
             disabled={loading || !!loadError}
           />
@@ -175,14 +266,21 @@
                 <button type="button" onclick={() => addFood(food)}>
                   <span>
                     <strong>{food.name}</strong>
-                    <small>{food.measure} · {food.weight} g</small>
+                    <small>
+                      {#if food.variant}{food.variant} ·
+                      {/if}{food.measure} · {food.weight} g
+                    </small>
                   </span>
-                  <span class="result-calories">{formatAmount(food.nutrients.calories, 0)} cal</span>
+                  <span class="result-calories"
+                    >{formatAmount(food.nutrients.calories, 0)} cal</span
+                  >
                   <span class="add" aria-hidden="true">+</span>
                 </button>
               {/each}
             {:else}
-              <p class="no-results">No matching foods. Try a shorter or different search.</p>
+              <p class="no-results">
+                No matching foods. Try a shorter or different search.
+              </p>
             {/if}
           </div>
         {/if}
@@ -191,34 +289,52 @@
       <div class="meal-list">
         <div class="list-title">
           <h3>Your ingredients</h3>
-          <span>{meal.length} {meal.length === 1 ? 'food' : 'foods'}</span>
+          <div class="list-actions">
+            <span>{meal.length} {meal.length === 1 ? "food" : "foods"}</span>
+            <button
+              class="clear-meal"
+              type="button"
+              onclick={clearMeal}
+              disabled={!meal.length}>Clear meal</button
+            >
+          </div>
         </div>
 
         {#if meal.length}
           {#each meal as item (item.id)}
             <article class="meal-item">
-              <div class="food-icon" aria-hidden="true">{item.food.name.charAt(0)}</div>
+              <div class="food-icon" aria-hidden="true">
+                {item.food.name.charAt(0)}
+              </div>
               <div class="food-info">
-                <strong>{item.food.name}</strong>
+                <strong>{foodLabel(item.food)}</strong>
                 <span>{item.food.measure} ({item.food.weight} g)</span>
               </div>
               <label class="quantity">
-                <span>Servings</span>
+                <span
+                  >{measureUnit(
+                    item.food.measure,
+                    measureAmount(item.food, item.quantity),
+                  )}</span
+                >
                 <input
-                  value={item.quantity}
+                  value={measureAmount(item.food, item.quantity)}
                   onchange={(event) =>
-                    updateQuantity(item.id, Number((event.currentTarget as HTMLInputElement).value))}
+                    updateAmount(
+                      item.id,
+                      Number((event.currentTarget as HTMLInputElement).value),
+                    )}
                   type="number"
-                  min="0.1"
-                  step="0.25"
-                  aria-label={`Servings of ${item.food.name}`}
+                  min="0"
+                  step="any"
+                  aria-label={`How much ${foodLabel(item.food)}, in ${measureUnit(item.food.measure, 2)}`}
                 />
               </label>
               <button
                 class="remove"
                 type="button"
                 onclick={() => removeFood(item.id)}
-                aria-label={`Remove ${item.food.name}`}>×</button
+                aria-label={`Remove ${foodLabel(item.food)}`}>×</button
               >
             </article>
           {/each}
@@ -238,16 +354,22 @@
           <span>02</span>
           <h2 id="label-title">Your label</h2>
         </div>
-        <button type="button" onclick={() => window.print()} disabled={!meal.length}>Print label</button>
+        <button
+          type="button"
+          onclick={() => window.print()}
+          disabled={!meal.length}>Print label</button
+        >
       </div>
 
-      <div class="print-meal-name">{mealName || 'Untitled meal'}</div>
+      <div class="print-meal-name">{mealName || "Untitled meal"}</div>
       <div class:label-empty={!meal.length} class="nutrition-label">
         <div class="label-title">Nutrition Facts</div>
         <div class="serving-copy">{servings || 1} servings per recipe</div>
         <div class="serving-size">
           <strong>Serving size</strong>
-          <strong>{servingWeight ? `${Math.round(servingWeight)} g` : '—'}</strong>
+          <strong
+            >{servingWeight ? `${Math.round(servingWeight)} g` : "—"}</strong
+          >
         </div>
         <div class="rule-heavy"></div>
         <div class="amount">Amount per serving</div>
@@ -260,13 +382,19 @@
         <div class="dv-heading">% of daily target*</div>
 
         {#each nutrientRows as row (row.key)}
-          <div class:indent={row.indent} class:protein-row={row.key === 'protein'} class="nutrient-row">
+          <div
+            class:indent={row.indent}
+            class:protein-row={row.key === "protein"}
+            class="nutrient-row"
+          >
             <span>
-              <strong class:normal={row.indent || row.key === 'protein'}>{row.label}</strong>
+              <strong class:normal={row.indent || row.key === "protein"}
+                >{row.label}</strong
+              >
               {formatAmount(totals[row.key])}{row.unit}
             </span>
-            {#if percent(row.key) !== null}
-              <strong>{percent(row.key)}%</strong>
+            {#if percentages[row.key] !== null}
+              <strong>{percentageLabels[row.key]}</strong>
             {/if}
           </div>
         {/each}
@@ -275,31 +403,59 @@
         {#each vitaminRows as row (row.key)}
           <div class="nutrient-row vitamin-row">
             <span>{row.label} {formatAmount(totals[row.key])}{row.unit}</span>
-            <span>{percent(row.key)}%</span>
+            <span>{percentageLabels[row.key]}</span>
           </div>
         {/each}
         <div class="rule-medium foot-rule"></div>
         <p class="daily-note">
-          * Shows how much one serving contributes to the selected example target.
-          {selectedProfile.description}. Needs vary by growth, activity, and health.
+          * Shows how much one serving contributes to a whole day's nutrition
+          for the selected age. {selectedProfile.description}. An individual
+          student's needs vary by growth, activity, and health.
+          <a class="note-link" href={resolve("/daily-targets")}>Where these come from</a>
         </p>
       </div>
+
+      <section class="print-ingredients" aria-label="Meal ingredients">
+        <h3>Meal ingredients</h3>
+        <p>{servings || 1} servings in the full recipe</p>
+        <ul>
+          {#each meal as item (item.id)}
+            <li>
+              <strong>{item.food.name}</strong>
+              <span>
+                {formatMeasure(item.food, item.quantity)} ({formatAmount(
+                  item.food.weight * item.quantity,
+                  0,
+                )} g)
+              </span>
+            </li>
+          {/each}
+        </ul>
+      </section>
 
       <div class="data-note">
         <strong>About this estimate</strong>
         <p>
-          Values come from USDA reference data. Added sugars, trans fat, and vitamin D
-          are not available in this dataset, so they are not shown.
+          Values come from USDA reference data. Added sugars, trans fat, and
+          vitamin D are not available in this dataset, so they are not shown.
         </p>
       </div>
     </aside>
   </div>
 </main>
 
-<footer>
+<SiteFooter>
   <span>Made for learning, not medical advice.</span>
-  <span>USDA nutritive value reference data</span>
-</footer>
+  ·
+  <a
+    href="https://www.ars.usda.gov/is/np/NutritiveValueofFoods/NutritiveValueofFoods.pdf"
+    title="Nutritive Value of Foods, USDA Home and Garden Bulletin No. 72 (PDF)"
+    target="_blank"
+    rel="external noreferrer">USDA nutritive value reference data</a
+  >
+  ·
+  <a href={resolve("/daily-targets")}>Where the daily targets come from</a>
+</SiteFooter>
 
 <style>
   :global(*) {
@@ -317,47 +473,6 @@
   :global(input),
   :global(select) {
     font: inherit;
-  }
-
-  .site-header {
-    height: 74px;
-    padding: 0 clamp(22px, 5vw, 78px);
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    border-bottom: 1px solid #c9c2b2;
-  }
-
-  .brand {
-    display: flex;
-    align-items: center;
-    gap: 11px;
-    color: inherit;
-    font-size: 15px;
-    font-weight: 800;
-    letter-spacing: 0.08em;
-    text-decoration: none;
-    text-transform: uppercase;
-  }
-
-  .brand-mark {
-    display: grid;
-    width: 34px;
-    height: 34px;
-    place-items: center;
-    border-radius: 50%;
-    background: #f16038;
-    color: white;
-    font-size: 12px;
-    letter-spacing: -0.03em;
-  }
-
-  .site-header p {
-    margin: 0;
-    color: #6f766f;
-    font-size: 12px;
-    letter-spacing: 0.1em;
-    text-transform: uppercase;
   }
 
   main {
@@ -386,7 +501,7 @@
 
   h1 {
     margin: 0;
-    font-family: Georgia, 'Times New Roman', serif;
+    font-family: Georgia, "Times New Roman", serif;
     font-size: clamp(58px, 7vw, 104px);
     font-weight: 400;
     letter-spacing: -0.06em;
@@ -397,7 +512,7 @@
     max-width: 470px;
     margin: 0 0 4px;
     color: #59635e;
-    font-family: Georgia, 'Times New Roman', serif;
+    font-family: Georgia, "Times New Roman", serif;
     font-size: 19px;
     line-height: 1.55;
   }
@@ -433,16 +548,10 @@
 
   h2 {
     margin: 0;
-    font-family: Georgia, 'Times New Roman', serif;
+    font-family: Georgia, "Times New Roman", serif;
     font-size: 30px;
     font-weight: 400;
     letter-spacing: -0.025em;
-  }
-
-  .section-heading p {
-    margin: 7px 0 0;
-    color: #68706b;
-    font-size: 14px;
   }
 
   .name-row {
@@ -606,6 +715,36 @@
   .list-title span {
     color: #6a736e;
     font-size: 12px;
+  }
+
+  .list-actions {
+    display: flex;
+    gap: 14px;
+    align-items: center;
+  }
+
+  .clear-meal {
+    padding: 6px 10px;
+    border: 1px solid #b5a396;
+    background: transparent;
+    color: #8a5a45;
+    font-size: 10px;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    cursor: pointer;
+  }
+
+  .clear-meal:hover:not(:disabled),
+  .clear-meal:focus-visible:not(:disabled) {
+    border-color: #d64d28;
+    background: #f16038;
+    color: white;
+  }
+
+  .clear-meal:disabled {
+    cursor: not-allowed;
+    opacity: 0.4;
   }
 
   .meal-item {
@@ -777,19 +916,21 @@
     font-size: 14px;
   }
 
+  /* Drawn as borders, not filled backgrounds, so they survive printing
+     even when the browser is set to skip background graphics. */
   .rule-heavy {
-    height: 10px;
+    height: 0;
     margin-top: 4px;
-    background: #111;
+    border-top: 10px solid #111;
   }
 
   .rule-heavy.small {
-    height: 6px;
+    border-top-width: 6px;
   }
 
   .rule-medium {
-    height: 5px;
-    background: #111;
+    height: 0;
+    border-top: 5px solid #111;
   }
 
   .amount {
@@ -865,6 +1006,49 @@
     text-indent: -6px;
   }
 
+  .note-link {
+    color: inherit;
+    text-underline-offset: 2px;
+    white-space: nowrap;
+  }
+
+  .label-row {
+    display: inline-flex;
+    gap: 6px;
+    align-items: center;
+  }
+
+  /* An "i" in a circle, sized to sit on the label's baseline without
+     stretching the row it shares with the other two inputs. */
+  .info-link {
+    display: grid;
+    width: 15px;
+    height: 15px;
+    place-items: center;
+    border: 1px solid #b0a893;
+    border-radius: 50%;
+    color: #6f766f;
+    font-family: Georgia, "Times New Roman", serif;
+    font-size: 10px;
+    font-style: italic;
+    line-height: 1;
+    text-decoration: none;
+  }
+
+  .info-link:hover,
+  .info-link:focus-visible {
+    border-color: #d64d28;
+    background: #f16038;
+    color: white;
+  }
+
+  @media print {
+    .note-link,
+    .info-link {
+      display: none;
+    }
+  }
+
   .data-note {
     max-width: 440px;
     margin: 20px auto 0;
@@ -875,6 +1059,10 @@
     line-height: 1.5;
   }
 
+  .print-ingredients {
+    display: none;
+  }
+
   .data-note strong {
     letter-spacing: 0.06em;
     text-transform: uppercase;
@@ -882,17 +1070,6 @@
 
   .data-note p {
     margin: 5px 0 0;
-  }
-
-  footer {
-    display: flex;
-    justify-content: space-between;
-    padding: 22px clamp(22px, 5vw, 78px);
-    border-top: 1px solid #c9c2b2;
-    color: #737871;
-    font-size: 11px;
-    letter-spacing: 0.05em;
-    text-transform: uppercase;
   }
 
   @media (max-width: 950px) {
@@ -916,14 +1093,6 @@
   }
 
   @media (max-width: 600px) {
-    .site-header {
-      height: 64px;
-    }
-
-    .site-header p {
-      display: none;
-    }
-
     main {
       padding-top: 40px;
     }
@@ -958,23 +1127,25 @@
       align-items: flex-start;
     }
 
-    footer {
-      gap: 16px;
-      flex-direction: column;
-    }
   }
 
   @media print {
     :global(body) {
       background: white;
+      -webkit-print-color-adjust: exact;
+      print-color-adjust: exact;
     }
 
-    .site-header,
+    .nutrition-label,
+    .nutrition-label * {
+      -webkit-print-color-adjust: exact;
+      print-color-adjust: exact;
+    }
+
     .intro,
     .builder,
     .preview-heading,
-    .data-note,
-    footer {
+    .data-note {
       display: none !important;
     }
 
@@ -1005,6 +1176,47 @@
     .nutrition-label {
       max-width: 440px;
       opacity: 1 !important;
+    }
+
+    .print-ingredients {
+      display: block;
+      max-width: 440px;
+      margin: 18px auto 0;
+      color: black;
+      break-inside: avoid;
+    }
+
+    .print-ingredients h3 {
+      margin: 0;
+      padding-bottom: 4px;
+      border-bottom: 3px solid black;
+      font-size: 18px;
+      text-transform: uppercase;
+    }
+
+    .print-ingredients p {
+      margin: 4px 0 8px;
+      font-size: 11px;
+    }
+
+    .print-ingredients ul {
+      margin: 0;
+      padding: 0;
+      list-style: none;
+    }
+
+    .print-ingredients li {
+      display: flex;
+      justify-content: space-between;
+      gap: 16px;
+      padding: 5px 0;
+      border-bottom: 1px solid #777;
+      font-size: 11px;
+    }
+
+    .print-ingredients li span {
+      flex-shrink: 0;
+      text-align: right;
     }
   }
 </style>
