@@ -1,5 +1,6 @@
 <script lang="ts">
   import { resolve } from "$app/paths";
+  import BrandMark from "$lib/BrandMark.svelte";
 
   /* The home page shows the brand as plain text; every other page turns it into
      a way back. */
@@ -11,12 +12,12 @@
 <header class="site-header">
   {#if linkHome}
     <a class="brand" href={resolve("/")} aria-label="Label Your Lunch">
-      <span class="brand-mark" aria-hidden="true">LYL</span>
+      <BrandMark />
       <span>Label Your Lunch</span>
     </a>
   {:else}
     <div class="brand" aria-label="Label Your Lunch">
-      <span class="brand-mark" aria-hidden="true">LYL</span>
+      <BrandMark />
       <span>Label Your Lunch</span>
     </div>
   {/if}
@@ -48,18 +49,6 @@
     letter-spacing: 0.08em;
     text-decoration: none;
     text-transform: uppercase;
-  }
-
-  .brand-mark {
-    display: grid;
-    width: 34px;
-    height: 34px;
-    place-items: center;
-    border-radius: 50%;
-    background: #f16038;
-    color: white;
-    font-size: 12px;
-    letter-spacing: -0.03em;
   }
 
   .site-header p {

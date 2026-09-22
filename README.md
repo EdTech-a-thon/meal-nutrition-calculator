@@ -75,6 +75,34 @@ prerendered, so the value is baked in at build time: after changing it, redeploy
 Locally, copy `.env.example` to `.env` and fill it in only if you want to test
 the beacon. The token is not a secret - it ships in the HTML of every page.
 
+## The logo
+
+The lunchbox mark lives in `src/lib/BrandMark.svelte`, ships as
+`static/favicon.svg`, and is kept as a standalone file in `brand/lunchbox.svg`.
+All three are the same artwork - edit them together.
+
+The apple's outline is derived from the `apple` icon in
+[Lucide](https://lucide.dev), scaled onto our grid; the lunchbox, stem and leaf
+are ours. Lucide is ISC-licensed and the notice below covers that reuse:
+
+```
+ISC License
+
+Copyright (c) 2026 Lucide Icons and Contributors
+
+Permission to use, copy, modify, and/or distribute this software for any
+purpose with or without fee is hereby granted, provided that the above
+copyright notice and this permission notice appear in all copies.
+
+THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
+WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
+MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
+ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
+WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
+ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
+OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
+```
+
 ## Everyday commands
 
 ```sh
