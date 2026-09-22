@@ -554,12 +554,6 @@
     letter-spacing: -0.025em;
   }
 
-  .section-heading p {
-    margin: 7px 0 0;
-    color: #68706b;
-    font-size: 14px;
-  }
-
   .name-row {
     display: grid;
     grid-template-columns: minmax(180px, 1fr) 140px minmax(190px, 0.7fr);
