@@ -4,7 +4,8 @@
     nutrientSources,
     referenceById,
   } from "$lib/nutrition-profiles/sources";
-  import { resolve } from "$app/paths";
+  import SiteHeader from "$lib/SiteHeader.svelte";
+  import SiteFooter from "$lib/SiteFooter.svelte";
 </script>
 
 <svelte:head>
@@ -15,13 +16,7 @@
   />
 </svelte:head>
 
-<header class="site-header">
-  <a class="brand" href={resolve("/")} aria-label="Label Your Lunch">
-    <span class="brand-mark" aria-hidden="true">LYL</span>
-    <span>Label Your Lunch</span>
-  </a>
-  <a class="back" href={resolve("/")}>Back to the calculator</a>
-</header>
+<SiteHeader backLabel="Back to the calculator" />
 
 <main>
   <h1>Where the daily targets come from</h1>
@@ -88,6 +83,8 @@
   </p>
 </main>
 
+<SiteFooter />
+
 <style>
   :global(*) {
     box-sizing: border-box;
@@ -98,41 +95,6 @@
     background: #f3efe4;
     color: #17231e;
     font-family: Arial, Helvetica, sans-serif;
-  }
-
-  .site-header {
-    height: 74px;
-    padding: 0 clamp(22px, 5vw, 78px);
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    border-bottom: 1px solid #c9c2b2;
-  }
-
-  .brand {
-    display: flex;
-    align-items: center;
-    gap: 11px;
-    color: inherit;
-    font-weight: 700;
-    text-decoration: none;
-  }
-
-  .brand-mark {
-    display: grid;
-    width: 34px;
-    height: 34px;
-    place-items: center;
-    border-radius: 50%;
-    background: #f16038;
-    color: white;
-    font-size: 12px;
-    letter-spacing: -0.03em;
-  }
-
-  .back {
-    color: #6f766f;
-    font-size: 13px;
   }
 
   main {

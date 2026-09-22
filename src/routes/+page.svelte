@@ -18,7 +18,15 @@
     type NutrientKey,
   } from "$lib/nutrition";
   import { nutritionProfiles } from "$lib/nutrition-profiles";
+  import {
+    clearSavedMeal,
+    loadSavedMeal,
+    restoreMealItems,
+    saveMeal,
+  } from "$lib/saved-meal";
   import { resolve } from "$app/paths";
+  import SiteHeader from "$lib/SiteHeader.svelte";
+  import SiteFooter from "$lib/SiteFooter.svelte";
 
   let foods: Food[] = [];
   let meal: MealItem[] = [];
@@ -29,6 +37,9 @@
   let loadError = "";
   let showResults = false;
   let selectedProfileId = nutritionProfiles[0].id;
+  /* Nothing is written back to storage until the saved meal has been read,
+     so the first render can't overwrite it with the empty defaults. */
+  let restored = false;
 
   const nutrientRows: {
     key: NutrientKey;
@@ -85,6 +96,8 @@
       const response = await fetch("/data/foods.json");
       if (!response.ok) throw new Error("Food data could not be loaded.");
       foods = parseFoods(await response.json());
+      restoreMeal();
+      restored = true;
     } catch (error) {
       loadError =
         error instanceof Error
@@ -94,6 +107,42 @@
       loading = false;
     }
   });
+
+  /** Puts back the meal from the last visit, if the browser saved one. */
+  function restoreMeal() {
+    const saved = loadSavedMeal();
+    if (!saved) return;
+
+    meal = restoreMealItems(saved, foods);
+    if (saved.mealName) mealName = saved.mealName;
+    if (saved.servings > 0) servings = saved.servings;
+    if (nutritionProfiles.some((profile) => profile.id === saved.profileId)) {
+      selectedProfileId = saved.profileId;
+    }
+  }
+
+  /* Re-saves whenever any part of the meal changes. */
+  $: if (restored) {
+    saveMeal({
+      mealName,
+      servings: Number(servings) || 1,
+      profileId: selectedProfileId,
+      items: meal.map((item) => ({
+        foodId: item.food.id,
+        quantity: item.quantity,
+      })),
+    });
+  }
+
+  /** Empties the plate and forgets the saved copy in this browser. */
+  function clearMeal() {
+    meal = [];
+    mealName = "My meal";
+    servings = 1;
+    query = "";
+    showResults = false;
+    clearSavedMeal();
+  }
 
   function addFood(food: Food) {
     const existing = meal.find((item) => item.food.id === food.id);
@@ -135,13 +184,7 @@
   />
 </svelte:head>
 
-<header class="site-header">
-  <div class="brand" aria-label="Label Your Lunch">
-    <span class="brand-mark" aria-hidden="true">LYL</span>
-    <span>Label Your Lunch</span>
-  </div>
-  <p>Build it. Measure it. Read the label.</p>
-</header>
+<SiteHeader linkHome={false} tagline="Build it. Measure it. Read the label." />
 
 <main>
   <section class="intro">
@@ -161,7 +204,6 @@
         <span>01</span>
         <div>
           <h2 id="builder-title">Build your meal</h2>
-          <p>Start with a name, then add foods and adjust their servings.</p>
         </div>
       </div>
 
@@ -180,7 +222,7 @@
         </label>
         <label>
           <span class="label-row">
-            Daily target for age
+            Who's eating?
             <a
               class="info-link"
               href={resolve("/daily-targets")}
@@ -247,7 +289,15 @@
       <div class="meal-list">
         <div class="list-title">
           <h3>Your ingredients</h3>
-          <span>{meal.length} {meal.length === 1 ? "food" : "foods"}</span>
+          <div class="list-actions">
+            <span>{meal.length} {meal.length === 1 ? "food" : "foods"}</span>
+            <button
+              class="clear-meal"
+              type="button"
+              onclick={clearMeal}
+              disabled={!meal.length}>Clear meal</button
+            >
+          </div>
         </div>
 
         {#if meal.length}
@@ -394,19 +444,18 @@
   </div>
 </main>
 
-<footer>
+<SiteFooter>
   <span>Made for learning, not medical advice.</span>
-  <span>
-    <a
-      href="https://www.ars.usda.gov/is/np/NutritiveValueofFoods/NutritiveValueofFoods.pdf"
-      title="Nutritive Value of Foods, USDA Home and Garden Bulletin No. 72 (PDF)"
-      target="_blank"
-      rel="external noreferrer">USDA nutritive value reference data</a
-    >
-    ·
-    <a href={resolve("/daily-targets")}>Where the daily targets come from</a>
-  </span>
-</footer>
+  ·
+  <a
+    href="https://www.ars.usda.gov/is/np/NutritiveValueofFoods/NutritiveValueofFoods.pdf"
+    title="Nutritive Value of Foods, USDA Home and Garden Bulletin No. 72 (PDF)"
+    target="_blank"
+    rel="external noreferrer">USDA nutritive value reference data</a
+  >
+  ·
+  <a href={resolve("/daily-targets")}>Where the daily targets come from</a>
+</SiteFooter>
 
 <style>
   :global(*) {
@@ -424,47 +473,6 @@
   :global(input),
   :global(select) {
     font: inherit;
-  }
-
-  .site-header {
-    height: 74px;
-    padding: 0 clamp(22px, 5vw, 78px);
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    border-bottom: 1px solid #c9c2b2;
-  }
-
-  .brand {
-    display: flex;
-    align-items: center;
-    gap: 11px;
-    color: inherit;
-    font-size: 15px;
-    font-weight: 800;
-    letter-spacing: 0.08em;
-    text-decoration: none;
-    text-transform: uppercase;
-  }
-
-  .brand-mark {
-    display: grid;
-    width: 34px;
-    height: 34px;
-    place-items: center;
-    border-radius: 50%;
-    background: #f16038;
-    color: white;
-    font-size: 12px;
-    letter-spacing: -0.03em;
-  }
-
-  .site-header p {
-    margin: 0;
-    color: #6f766f;
-    font-size: 12px;
-    letter-spacing: 0.1em;
-    text-transform: uppercase;
   }
 
   main {
@@ -713,6 +721,36 @@
   .list-title span {
     color: #6a736e;
     font-size: 12px;
+  }
+
+  .list-actions {
+    display: flex;
+    gap: 14px;
+    align-items: center;
+  }
+
+  .clear-meal {
+    padding: 6px 10px;
+    border: 1px solid #b5a396;
+    background: transparent;
+    color: #8a5a45;
+    font-size: 10px;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    cursor: pointer;
+  }
+
+  .clear-meal:hover:not(:disabled),
+  .clear-meal:focus-visible:not(:disabled) {
+    border-color: #d64d28;
+    background: #f16038;
+    color: white;
+  }
+
+  .clear-meal:disabled {
+    cursor: not-allowed;
+    opacity: 0.4;
   }
 
   .meal-item {
@@ -1040,26 +1078,6 @@
     margin: 5px 0 0;
   }
 
-  footer {
-    display: flex;
-    gap: 10px 24px;
-    flex-wrap: wrap;
-    justify-content: space-between;
-    padding: 22px clamp(22px, 5vw, 78px);
-    border-top: 1px solid #c9c2b2;
-    color: #737871;
-    font-size: 11px;
-    letter-spacing: 0.05em;
-    text-transform: uppercase;
-  }
-
-  /* The footer's links are credits, not calls to action: they keep the row's
-     colour and only pick up an underline. */
-  footer a {
-    color: inherit;
-    text-underline-offset: 2px;
-  }
-
   @media (max-width: 950px) {
     .intro {
       grid-template-columns: 1fr;
@@ -1081,14 +1099,6 @@
   }
 
   @media (max-width: 600px) {
-    .site-header {
-      height: 64px;
-    }
-
-    .site-header p {
-      display: none;
-    }
-
     main {
       padding-top: 40px;
     }
@@ -1123,10 +1133,6 @@
       align-items: flex-start;
     }
 
-    footer {
-      gap: 16px;
-      flex-direction: column;
-    }
   }
 
   @media print {
@@ -1142,12 +1148,10 @@
       print-color-adjust: exact;
     }
 
-    .site-header,
     .intro,
     .builder,
     .preview-heading,
-    .data-note,
-    footer {
+    .data-note {
       display: none !important;
     }
 
