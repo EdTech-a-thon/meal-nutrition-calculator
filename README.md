@@ -1,4 +1,4 @@
-# Meal Label Lab
+# Label Your Lunch
 
 Search USDA food data, build a meal, and read the Nutrition Facts label it produces.
 
@@ -39,6 +39,27 @@ npm run build:foods
 - The printed table's fractions (½ cup, ¼ block) did not survive extraction. Where
   a portion came through as a bare unit, the dataset shows the gram weight
   instead, which the CSV does record correctly.
+
+## Where the daily targets come from
+
+The label shows a percentage of a whole day, so the app needs a day to compare
+against. `src/lib/nutrition-profiles/` holds one profile per grade band, and
+`sources.ts` next to them carries the citation for every figure. The
+`/daily-targets` page renders that file, so a citation cannot drift away from
+the number it justifies - change a target and change its entry there too.
+
+Three rules decide which published figure a band gets:
+
+| Kind of number | Nutrients                                | Rule                |
+| -------------- | ---------------------------------------- | ------------------- |
+| A requirement  | Protein, fiber, calcium, iron, potassium | Highest in the band |
+| A limit        | Sodium, saturated fat                    | Lowest in the band  |
+| A range        | Total fat, carbohydrate                  | Middle of the range |
+
+Calories are none of those: they are the Estimated Energy Requirement for a
+moderately active child at the middle age of the band, averaged across boys and
+girls. The adult profile is the one exception - it uses the FDA's 2,000-calorie
+reference day, the figure every packaged label is built on.
 
 ## Everyday commands
 

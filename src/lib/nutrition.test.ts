@@ -13,8 +13,12 @@ import {
   quantityFromAmount,
   parseNumber,
   searchFoods,
+  nutrientKeys,
   type Food,
+  type NutrientKey,
 } from "./nutrition";
+import { nutritionProfiles } from "./nutrition-profiles";
+import { nutrientSources, referenceById } from "./nutrition-profiles/sources";
 
 function makeFood(overrides: Partial<Food> = {}): Food {
   return {
@@ -164,5 +168,103 @@ describe("measures", () => {
     expect(quantityFromAmount(almonds, 35)).toBe(3.5);
     expect(formatMeasure(broccoli, 0.25)).toBe("0.25 cups");
     expect(formatMeasure(almonds, 0.1)).toBe("1 half");
+  });
+});
+
+describe("daily targets", () => {
+  it("gives every nutrient on the label a documented source", () => {
+    const documented = nutrientSources.map((source) => source.key);
+    expect([...documented].sort()).toEqual([...nutrientKeys].sort());
+
+    for (const source of nutrientSources) {
+      expect(source.refs.length).toBeGreaterThan(0);
+      for (const id of source.refs) expect(referenceById(id)).toBeDefined();
+    }
+  });
+
+  it("sets a positive target for every nutrient in every profile", () => {
+    for (const profile of nutritionProfiles)
+      for (const key of nutrientKeys)
+        expect(profile.targets[key], `${profile.id}.${key}`).toBeGreaterThan(0);
+  });
+
+  /*
+   * Fat, saturated fat, and carbohydrate are percentages of the profile's own
+   * calorie figure, so they cannot be checked against a published table - only
+   * against the arithmetic that produced them. Everything else is copied from a
+   * source and is covered by the value test below.
+   */
+  it("derives the energy-based targets from each profile's calories", () => {
+    const fatShare: Record<string, number> = {
+      "elementary-school": 0.3,
+      "middle-school": 0.3,
+      "high-school": 0.3,
+      adult: 0.275,
+    };
+
+    for (const profile of nutritionProfiles) {
+      const { calories } = profile.targets;
+      expect(profile.targets.totalFat).toBe(
+        Math.round((calories * fatShare[profile.id]) / 9),
+      );
+      expect(profile.targets.saturatedFat).toBe(
+        Math.round((calories * 0.1) / 9),
+      );
+      expect(profile.targets.carbohydrate).toBe(
+        Math.round((calories * 0.55) / 4 / 5) * 5,
+      );
+    }
+  });
+
+  it("matches the published figure for each cited nutrient", () => {
+    const published: Record<string, Partial<Record<NutrientKey, number>>> = {
+      // Highest requirement in the band, lowest limit in the band.
+      "elementary-school": {
+        calories: 1600,
+        sodium: 1500,
+        fiber: 31,
+        protein: 34,
+        calcium: 1300,
+        iron: 10,
+        potassium: 2500,
+      },
+      "middle-school": {
+        calories: 2100,
+        sodium: 1800,
+        fiber: 31,
+        protein: 34,
+        calcium: 1300,
+        iron: 8,
+        potassium: 2500,
+      },
+      "high-school": {
+        calories: 2400,
+        sodium: 2300,
+        fiber: 38,
+        protein: 52,
+        calcium: 1300,
+        iron: 15,
+        potassium: 3000,
+      },
+      adult: {
+        calories: 2000,
+        sodium: 2300,
+        fiber: 38,
+        protein: 56,
+        calcium: 1000,
+        iron: 18,
+        potassium: 3400,
+      },
+    };
+
+    for (const profile of nutritionProfiles)
+      for (const [key, value] of Object.entries(published[profile.id]))
+        expect(
+          profile.targets[key as NutrientKey],
+          `${profile.id}.${key}`,
+        ).toBe(value);
+
+    for (const profile of nutritionProfiles)
+      expect(profile.targets.cholesterol).toBe(300);
   });
 });

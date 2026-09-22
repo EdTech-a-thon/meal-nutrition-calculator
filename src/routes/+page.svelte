@@ -18,6 +18,7 @@
     type NutrientKey,
   } from "$lib/nutrition";
   import { nutritionProfiles } from "$lib/nutrition-profiles";
+  import { resolve } from "$app/paths";
 
   let foods: Food[] = [];
   let meal: MealItem[] = [];
@@ -146,11 +147,11 @@
   <section class="intro">
     <div>
       <span class="eyebrow">A nutrition classroom tool</span>
-      <h1>What’s really in<br />your meal?</h1>
+      <h1>What’s in<br />your meal?</h1>
     </div>
     <p>
       Search USDA food data, combine ingredients, and watch a Nutrition Facts
-      label take shape. Try changing portions to see what changes.
+      label take shape. 
     </p>
   </section>
 
@@ -178,7 +179,17 @@
           <input bind:value={servings} type="number" min="1" step="1" />
         </label>
         <label>
-          Daily target for age
+          <span class="label-row">
+            Daily target for age
+            <a
+              class="info-link"
+              href={resolve("/daily-targets")}
+              title="Where these daily targets come from"
+              aria-label="Where these daily targets come from"
+            >
+              <span aria-hidden="true">i</span>
+            </a>
+          </span>
           <select bind:value={selectedProfileId}>
             {#each nutritionProfiles as profile (profile.id)}
               <option value={profile.id}>{profile.label}</option>
@@ -350,6 +361,7 @@
           * Shows how much one serving contributes to a whole day's nutrition
           for the selected age. {selectedProfile.description}. An individual
           student's needs vary by growth, activity, and health.
+          <a class="note-link" href={resolve("/daily-targets")}>Where these come from</a>
         </p>
       </div>
 
@@ -384,7 +396,16 @@
 
 <footer>
   <span>Made for learning, not medical advice.</span>
-  <span>USDA nutritive value reference data</span>
+  <span>
+    <a
+      href="https://www.ars.usda.gov/is/np/NutritiveValueofFoods/NutritiveValueofFoods.pdf"
+      title="Nutritive Value of Foods, USDA Home and Garden Bulletin No. 72 (PDF)"
+      target="_blank"
+      rel="external noreferrer">USDA nutritive value reference data</a
+    >
+    ·
+    <a href={resolve("/daily-targets")}>Where the daily targets come from</a>
+  </span>
 </footer>
 
 <style>
@@ -953,6 +974,49 @@
     text-indent: -6px;
   }
 
+  .note-link {
+    color: inherit;
+    text-underline-offset: 2px;
+    white-space: nowrap;
+  }
+
+  .label-row {
+    display: inline-flex;
+    gap: 6px;
+    align-items: center;
+  }
+
+  /* An "i" in a circle, sized to sit on the label's baseline without
+     stretching the row it shares with the other two inputs. */
+  .info-link {
+    display: grid;
+    width: 15px;
+    height: 15px;
+    place-items: center;
+    border: 1px solid #b0a893;
+    border-radius: 50%;
+    color: #6f766f;
+    font-family: Georgia, "Times New Roman", serif;
+    font-size: 10px;
+    font-style: italic;
+    line-height: 1;
+    text-decoration: none;
+  }
+
+  .info-link:hover,
+  .info-link:focus-visible {
+    border-color: #d64d28;
+    background: #f16038;
+    color: white;
+  }
+
+  @media print {
+    .note-link,
+    .info-link {
+      display: none;
+    }
+  }
+
   .data-note {
     max-width: 440px;
     margin: 20px auto 0;
@@ -978,6 +1042,8 @@
 
   footer {
     display: flex;
+    gap: 10px 24px;
+    flex-wrap: wrap;
     justify-content: space-between;
     padding: 22px clamp(22px, 5vw, 78px);
     border-top: 1px solid #c9c2b2;
@@ -985,6 +1051,13 @@
     font-size: 11px;
     letter-spacing: 0.05em;
     text-transform: uppercase;
+  }
+
+  /* The footer's links are credits, not calls to action: they keep the row's
+     colour and only pick up an underline. */
+  footer a {
+    color: inherit;
+    text-underline-offset: 2px;
   }
 
   @media (max-width: 950px) {

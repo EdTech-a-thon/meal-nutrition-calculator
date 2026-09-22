@@ -7,25 +7,25 @@ import type { NutritionProfile } from "$lib/nutrition";
 /*
  * Targets are grouped by grade band, the same way USDA groups its school meal
  * pattern standards (K-5, 6-8, 9-12). One meal feeds a whole class, so a target
- * aimed at a single body type would fit almost nobody in the room. Where boys
- * and girls in a band need different amounts (protein, iron, potassium), each
- * profile uses the larger number: a meal that meets the highest need in the
- * band works for everyone in it.
+ * aimed at a single body type would fit almost nobody in the room.
  *
- * Within a profile:
- *   calories      DRI estimated energy requirement, moderately active,
- *                 at the middle of the age band
- *   total fat     30% of calories / 9 (middle of the recommended range)
- *   saturated fat 10% of calories / 9 (Dietary Guidelines upper limit)
- *   fiber         14 g per 1,000 calories
- *   carbohydrate  130 g (the RDA, which is the same at every age)
- *   protein,
- *   calcium,
- *   iron,
- *   potassium     DRI for the age band
- *   sodium        CDRR limit for the age band
- *   cholesterol   300 mg, the long-standing Nutrition Facts label figure;
- *                 there is no DRI for cholesterol
+ * Three rules decide which published number a band gets, depending on what kind
+ * of number it is:
+ *
+ *   a requirement  take the highest in the band (protein, fiber, calcium, iron,
+ *                  potassium), so a meal that hits the target works for every
+ *                  student in the room, including the one who needs most
+ *   a limit        take the lowest in the band (sodium, saturated fat), so the
+ *                  target protects the youngest student in the room
+ *   a range        take the middle (total fat, carbohydrate), since the source
+ *                  gives a band of acceptable intakes rather than one figure
+ *
+ * Calories are neither: they are the Estimated Energy Requirement for a
+ * moderately active child at the middle age of the band, averaged across boys
+ * and girls, because eating too much is as much a miss as eating too little.
+ *
+ * `sources.ts` carries the citation for each of these, and the /daily-targets
+ * page renders it. Change a target there as well as here.
  */
 export const nutritionProfiles = [
   elementarySchool,
